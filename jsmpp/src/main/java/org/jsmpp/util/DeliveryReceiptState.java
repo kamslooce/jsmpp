@@ -48,7 +48,24 @@ public enum DeliveryReceiptState {
     /**
      * REJECTED
      */
-    REJECTD(7);
+    REJECTD(7),
+
+
+
+    /**
+     * BUFFERED BY MBLOX
+     */
+    BUFFRED(8),
+    /**
+     * ACKNOWLEDGED BY MBLOX
+     */
+    ACKED(9),
+    /**
+     * FAILED BY MBLOX
+     */
+    FAILED(10),
+
+    ;
 
     private int value;
 

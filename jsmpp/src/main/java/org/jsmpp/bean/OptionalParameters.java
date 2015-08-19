@@ -106,7 +106,8 @@ public class OptionalParameters {
         Tag tag = Tag.valueOf(tagCode);
         if(tag == null) {
             logger.warn("Optional Parameter Tag not recognized for deserialization: {}", tagCode);
-            return new COctetString(tagCode, content);
+            // Mblox tags are also unknown and Mblox uses OctetString instead of COctetString
+            return new OctetString(tagCode, content);
         }
         
         switch(tag)
