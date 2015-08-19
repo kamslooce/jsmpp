@@ -1,2 +1,2 @@
 #!/bin/sh
-mvn clean install && cd jsmpp-war && mvn clean install && cd .. && cp -vfp jsmpp/target/jsmpp-2.2.1.jar lib/jsmpp-2.2.0-SNAPSHOT.jar && cp -vfp jsmpp-war/target/jsmpp-war.war lib/jsmpp-war.war && cp -vfp jsmpp-war/target/jsmpp-war/WEB-INF/lib/slf4j-api-1.7.12.jar lib/slf4j-api-1.6.1.jar && cp -vfp jsmpp-war/target/jsmpp-war/WEB-INF/lib/slf4j-jdk14-1.7.12.jar lib/slf4j-jdk14-1.6.1.jar
+mvn clean install && cd jsmpp-war && mvn clean install && cd .. && ls -al jsmpp/target/jsmpp-2.2.1.jar jsmpp-war/target/jsmpp-war.war
