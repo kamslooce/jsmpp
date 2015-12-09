@@ -105,7 +105,7 @@ public class OptionalParameters {
     public static OptionalParameter deserialize(short tagCode, byte[] content) {
         Tag tag = Tag.valueOf(tagCode);
         if(tag == null) {
-            logger.warn("Optional Parameter Tag not recognized for deserialization: {}", tagCode);
+            logger.debug("Optional Parameter Tag not recognized for deserialization: {}", tagCode);
             // Mblox tags are also unknown and Mblox uses OctetString instead of COctetString
             return new OctetString(tagCode, content);
         }
@@ -207,11 +207,11 @@ public class OptionalParameters {
             case VENDOR_SPECIFIC_DEST_MSC_ADDR:
                 return new OptionalParameter.Vendor_specific_dest_msc_addr(content);
             default:
-                logger.warn("Missing code in deserialize to handle Optional Parameter Tag: {}", tag);
+                logger.debug("Missing code in deserialize to handle Optional Parameter Tag: {}", tag);
         }
 
         // fallback
-        logger.warn("Falling back to basic OptionalParameter types for {}", tag);
+        logger.debug("Falling back to basic OptionalParameter types for {}", tag);
         if (Null.class.isAssignableFrom(tag.type)) {
             return new Null(tagCode);
         }
@@ -243,7 +243,7 @@ public class OptionalParameters {
             }
           }
         }
-        logger.info("Optional Parameter Tag {} not found", tagClass);
+        logger.debug("Optional Parameter Tag {} not found", tagClass);
         return null;
     }
 
@@ -256,7 +256,7 @@ public class OptionalParameters {
             }
           }
         }
-        logger.info("Optional Parameter Tag {} not found", tag);
+        logger.debug("Optional Parameter Tag {} not found", tag);
         return null;
     }
 }
