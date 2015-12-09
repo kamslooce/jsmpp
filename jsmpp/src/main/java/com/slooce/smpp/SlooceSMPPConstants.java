@@ -5,6 +5,7 @@ public interface SlooceSMPPConstants {
     short TAG_MBLOX_OPERATOR = (short) 0x1402;
     short TAG_MBLOX_TARIFF = (short) 0x1403;
     short TAG_MBLOX_SERVICEID = (short) 0x1407;
+    short TAG_INFOBIP_OPERATOR_MCCMNC = (short) 0x1416;
     short TAG_OPEN_MARKET_OPERATOR = (short) 0x2150;
 
     String SERVICE_TYPE_CELLULAR_MESSAGING = "CMT";

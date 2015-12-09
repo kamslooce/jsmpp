@@ -1,6 +1,7 @@
 <%@ page import="com.slooce.smpp.SlooceSMPPProvider" %>
 <%@ page import="com.slooce.smpp.SlooceSMPPReceiver" %>
 <%@ page import="com.slooce.smpp.SlooceSMPPSession" %>
+<%@ page import="org.jsmpp.util.DeliveryReceiptState" %>
 <%@ page import="org.slf4j.Logger" %>
 <%@ page import="org.slf4j.LoggerFactory" %>
 <%@ page import="java.util.ArrayList" %>
@@ -57,30 +58,25 @@
         connect2 = true;
     }
     if (connect1 || connect2) {
-        String provider = request.getParameter("provider");
-        String serviceType = request.getParameter("serviceType");
-        if (serviceType.equals("null")) {
-            serviceType = null;
-        }
-        String serviceId = request.getParameter("serviceId");
-        if (serviceId.equals("null")) {
-            serviceId = null;
-        }
+        final String provider = request.getParameter("provider");
+        final String serviceType = request.getParameter("serviceType").equals("null") ? null : request.getParameter("serviceType");
+        final String serviceId = request.getParameter("serviceId").equals("null") ? null : request.getParameter("serviceId");
+        final boolean useSSL = Boolean.parseBoolean(request.getParameter("useSSL"));
         final String host = request.getParameter("host");
         final int port = Integer.parseInt(request.getParameter("port"));
         final String systemId = request.getParameter("systemId");
         final String password = request.getParameter("password");
-        String systemType = request.getParameter("systemType");
-        if (systemType.equals("null")) {
-            systemType = null;
-        }
-        boolean stripSystemType = Boolean.parseBoolean(request.getParameter("stripSystemType"));
+        final String systemType = request.getParameter("systemType").equals("null") ? null : request.getParameter("systemType");
+        final boolean stripSystemType = Boolean.parseBoolean(request.getParameter("stripSystemType"));
 
         if (connect1 && slooceSMPPSession1 == null) {
-            slooceSMPPSession1 = new SlooceSMPPSession(SlooceSMPPProvider.valueOf(provider), serviceId, serviceType, host, port, systemId, password, systemType, stripSystemType, new SlooceSMPPReceiver() {
-                public void mo(final String id, final String message, final String subscriber, final String operator,
+            slooceSMPPSession1 = new SlooceSMPPSession(SlooceSMPPProvider.valueOf(provider), serviceId, serviceType, useSSL, host, port, systemId, password, systemType, stripSystemType, new SlooceSMPPReceiver() {
+                public void mo(final String messageId, final String message, final String subscriber, final String operator,
                                final String shortcode, final SlooceSMPPSession smpp) {
-                    log("MO Received by 1: id="+id+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
+                    log("MO Received by 1: messageId="+messageId+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
+                }
+                public void deliveryReceipt(String messageId, String message, String subscriber, String operator, String shortcode, DeliveryReceiptState status, String errorCode, SlooceSMPPSession smpp) {
+                    log("Delivery Receipt Received by 1: messageId="+messageId+",status="+status+",errorCode="+errorCode+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
                 }
                 public void onClose(final SlooceSMPPSession smpp) {
                     log("Session closed by 1 - "+smpp);
@@ -88,10 +84,13 @@
             });
         }
         if (connect2 && slooceSMPPSession2 == null) {
-            slooceSMPPSession2 = new SlooceSMPPSession(SlooceSMPPProvider.valueOf(provider), serviceId, serviceType, host, port, systemId, password, systemType, stripSystemType, new SlooceSMPPReceiver() {
-                public void mo(final String id, final String message, final String subscriber, final String operator,
+            slooceSMPPSession2 = new SlooceSMPPSession(SlooceSMPPProvider.valueOf(provider), serviceId, serviceType, useSSL, host, port, systemId, password, systemType, stripSystemType, new SlooceSMPPReceiver() {
+                public void mo(final String messageId, final String message, final String subscriber, final String operator,
                                final String shortcode, final SlooceSMPPSession smpp) {
-                    log("MO Received by 2: id="+id+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
+                    log("MO Received by 2: messageId="+messageId+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
+                }
+                public void deliveryReceipt(String messageId, String message, String subscriber, String operator, String shortcode, DeliveryReceiptState status, String errorCode, SlooceSMPPSession smpp) {
+                    log("Delivery Receipt Received by 2: messageId="+messageId+",status="+status+",errorCode="+errorCode+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
                 }
                 public void onClose(final SlooceSMPPSession smpp) {
                     log("Session closed by 2 - "+smpp);
@@ -186,6 +185,12 @@ Status 2: <%=slooceSMPPSession2 == null ? "Not connected" : slooceSMPPSession2%>
     <label for="serviceType">Service Type:</label>
     <input type="text" id="serviceType" name="serviceType" value="35076">
     (used in MT messages to indicate the SMS Application service associated with the message, e.g., CMT for Cellular Messaging, default is null)<br>
+    <label for="useSSL">Use SSL:</label>
+    <select id="useSSL" name="useSSL">
+        <option value="true">true</option>
+        <option value="false" selected>false</option>
+    </select>
+    (true to use an SSL SMPP connection)<br>
     <label for="host">Host:</label>
     <input type="text" id="host" name="host" value="smpp.psms.us.mblox.com"><br>
     <label for="port">Port:</label>

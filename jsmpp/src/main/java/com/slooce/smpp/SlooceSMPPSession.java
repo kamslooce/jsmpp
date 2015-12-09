@@ -1,8 +1,12 @@
 package com.slooce.smpp;
 
+import org.jsmpp.DefaultPDUReader;
+import org.jsmpp.DefaultPDUSender;
 import org.jsmpp.InvalidResponseException;
 import org.jsmpp.PDUException;
+import org.jsmpp.SynchronizedPDUSender;
 import org.jsmpp.bean.AlertNotification;
+import org.jsmpp.bean.Alphabet;
 import org.jsmpp.bean.BindType;
 import org.jsmpp.bean.DataCodings;
 import org.jsmpp.bean.DataSm;
@@ -26,14 +30,15 @@ import org.jsmpp.session.MessageReceiverListener;
 import org.jsmpp.session.SMPPSession;
 import org.jsmpp.session.Session;
 import org.jsmpp.session.SessionStateListener;
+import org.jsmpp.util.DefaultComposer;
 import org.jsmpp.util.HexUtil;
 import org.jsmpp.util.InvalidDeliveryReceiptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -43,16 +48,17 @@ import java.util.regex.Pattern;
 public class SlooceSMPPSession {
     private static final Logger logger = LoggerFactory.getLogger(SlooceSMPPSession.class);
 
-    private final SlooceSMPPProvider provider;
-    private final String serviceId;
-    private final String serviceType;
-    private final String host;
-    private final int port;
-    private final String systemId;
-    private final String password;
-    private final String systemType;
-    private final boolean stripSystemType;
-    private final SlooceSMPPReceiver receiver;
+    private SlooceSMPPProvider provider;
+    private String serviceId;
+    private String serviceType;
+    private boolean useSSL;
+    private String host;
+    private int port;
+    private String systemId;
+    private String password;
+    private String systemType;
+    private boolean stripSystemType;
+    private SlooceSMPPReceiver receiver;
 
     private SMPPSession smppSession = null;
     private boolean connected = false;
@@ -61,6 +67,7 @@ public class SlooceSMPPSession {
         this.provider = SlooceSMPPProvider.OPEN_MARKET;
         this.serviceId = null;
         this.serviceType = SlooceSMPPConstants.SERVICE_TYPE_CELLULAR_MESSAGING;
+        this.useSSL = false;
         this.host = null;
         this.port = 0;
         this.systemId = null;
@@ -72,13 +79,33 @@ public class SlooceSMPPSession {
 
     public SlooceSMPPSession(final SlooceSMPPProvider provider,
                              final String serviceId, final String serviceType,
-                             final String host, final int port,
+                             final boolean useSSL, final String host, final int port,
                              final String systemId, final String password,
                              final String systemType, final boolean stripSystemType,
                              final SlooceSMPPReceiver receiver) {
         this.provider = provider;
         this.serviceId = serviceId;
         this.serviceType = serviceType;
+        this.useSSL = useSSL;
+        this.host = host;
+        this.port = port;
+        this.systemId = systemId;
+        this.password = password;
+        this.systemType = systemType;
+        this.stripSystemType = stripSystemType;
+        this.receiver = receiver;
+    }
+
+    public void reconfigure(final SlooceSMPPProvider provider,
+                            final String serviceId, final String serviceType,
+                            final boolean useSSL, final String host, final int port,
+                            final String systemId, final String password,
+                            final String systemType, final boolean stripSystemType,
+                            final SlooceSMPPReceiver receiver) {
+        this.provider = provider;
+        this.serviceId = serviceId;
+        this.serviceType = serviceType;
+        this.useSSL = useSSL;
         this.host = host;
         this.port = port;
         this.systemId = systemId;
@@ -105,12 +132,12 @@ public class SlooceSMPPSession {
         while (!connected && attempt < attempts) {
             try {
                 ++attempt;
-                logger.info("SlooceSMPPSession.connect - Connect attempt #{}...", attempt);
+                logger.info("SlooceSMPPSession.connect - Connect attempt #{}... {}", attempt, this);
                 connect();
             } catch (Exception e) {
                 logger.error("SlooceSMPPSession.connect - Failed to connect - " + this, e);
                 // wait before retrying
-                try { Thread.sleep(retryInterval); } catch (Exception ignored) {
+                try { Thread.sleep(retryInterval * attempt); } catch (Exception ignored) {
                     // ignore exceptions
                 }
             }
@@ -126,44 +153,68 @@ public class SlooceSMPPSession {
             return;
         }
         final SlooceSMPPSession smpp = this;
-        smppSession = new SMPPSession();
-        smppSession.setTransactionTimer(10000);
+        smppSession = new SMPPSession(
+                new SynchronizedPDUSender(new DefaultPDUSender(new DefaultComposer())),
+                new DefaultPDUReader(),
+                new SlooceSMPPSocketConnectionFactory(useSSL));
+        smppSession.setEnquireLinkTimer(provider.getEnquireLinkTimer()); // Depends on the provider's inactivity timeout (actually, this is the SMPP Socket Read Timeout before enquiring to keep the link alive)
+        smppSession.setTransactionTimer(provider.getTransactionTimer()); // Depends on the provider's response timeout (responses should be returned within a second)
         smppSession.setMessageReceiverListener(new MessageReceiverListener() {
             @Override
-            public void onAcceptDeliverSm(DeliverSm deliverSm) throws ProcessRequestException {
-                logger.info("Receiving - from:{} to:{}", deliverSm.getSourceAddr(), deliverSm.getDestAddress());
+            public void onAcceptDeliverSm(final DeliverSm deliverSm) throws ProcessRequestException {
+                final Alphabet alphabet = smpp.provider.getAlphabet(deliverSm, logger);
                 if (MessageType.SMSC_DEL_RECEIPT.containedIn(deliverSm.getEsmClass())) {
                     // this message is a delivery receipt
                     try {
-                        DeliveryReceipt delReceipt = deliverSm.getShortMessageAsDeliveryReceipt();
+                        final DeliveryReceipt delReceipt = deliverSm.getShortMessageAsDeliveryReceipt();
                         String messageId = delReceipt.getId();
-                        if (provider.isMessageIdDecimal()) {
+                        if (smpp.provider.isMessageIdDecimal()) {
                             // Provider sends the messageId in a delivery receipt as a decimal value string per the SMPP spec.
                             // Convert it to hex to match the messageId hex string returned when submitting the MT.
                             messageId = Integer.toHexString(Integer.valueOf(messageId));
                         }
-                        logger.info("Received delivery receipt - messageId:{} from:{} to:{} {}{}",
-                                messageId, deliverSm.getSourceAddr(), deliverSm.getDestAddress(), delReceipt, paramsToString(deliverSm.getOptionalParameters()));
+                        final String operator = getOptionalParameterValueAsString(OptionalParameters.get(smpp.provider.getOperatorTag(), deliverSm.getOptionalParameters()));
+                        String message;
+                        if (alphabet == Alphabet.ALPHA_DEFAULT) {
+                            message = SlooceSMPPUtil.fromGSMCharset(delReceipt.getText().getBytes());
+                        } else {
+                            message = delReceipt.getText();
+                        }
+                        logger.info("Received delivery receipt - messageId:{} from:{} operator:{} to:{} text:{} dataCoding:{} alphabet:{} {}{} - {}",
+                                messageId, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress(), sanitizeCharacters(message), deliverSm.getDataCoding(), alphabet, sanitizeCharacters(delReceipt.toString()), paramsToString(deliverSm.getOptionalParameters()), smpp.toShortString());
+                        if (smpp.receiver != null) {
+                            smpp.receiver.deliveryReceipt(messageId, message, deliverSm.getDestAddress(), operator, deliverSm.getSourceAddr(), delReceipt.getFinalStatus(), delReceipt.getError(), smpp);
+                        }
                     } catch (InvalidDeliveryReceiptException e) {
-                        logger.error("Failed getting delivery receipt", e);
+                        logger.error("Failed getting delivery receipt - " + smpp.toShortString(), e);
                     }
                 } else {
                     // this message is an incoming MO
-                    String receiptedMessageId = getOptionalParameterValueAsString(deliverSm.getOptionalParameter(OptionalParameter.Tag.RECEIPTED_MESSAGE_ID));
-                    String operator = getOptionalParameterValueAsString(OptionalParameters.get(provider.getOperatorTag(), deliverSm.getOptionalParameters()));
-                    String message = new String(deliverSm.getShortMessage());
-                    if (stripSystemType && systemType != null) {
-                        message = Pattern.compile(systemType + "\\s*", Pattern.CASE_INSENSITIVE).matcher(message).replaceFirst("");
+                    final String messageId = getOptionalParameterValueAsString(deliverSm.getOptionalParameter(OptionalParameter.Tag.RECEIPTED_MESSAGE_ID));
+                    final String operator = getOptionalParameterValueAsString(OptionalParameters.get(smpp.provider.getOperatorTag(), deliverSm.getOptionalParameters()));
+                    String message;
+                    if (alphabet == Alphabet.ALPHA_DEFAULT) {
+                        message = SlooceSMPPUtil.fromGSMCharset(deliverSm.getShortMessage());
+                    } else {
+                        try {
+                            message = new String(deliverSm.getShortMessage(), "ISO-8859-1");
+                        } catch (UnsupportedEncodingException e) {
+                            logger.warn(e.getMessage());
+                            message = new String(deliverSm.getShortMessage());
+                        }
                     }
-                    logger.info("Received message - id:{} from:{} operator:{} to:{} text:{}{}",
-                            receiptedMessageId, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress(), message, paramsToString(deliverSm.getOptionalParameters()));
-                    if (receiver != null) {
-                        receiver.mo(receiptedMessageId, message, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress(), smpp);
+                    if (smpp.stripSystemType && smpp.systemType != null) {
+                        message = Pattern.compile(smpp.systemType + "\\s*", Pattern.CASE_INSENSITIVE).matcher(message).replaceFirst("");
+                    }
+                    logger.info("Received message - messageId:{} from:{} operator:{} to:{} text:{} dataCoding:{} alphabet:{}{} - {}",
+                            messageId, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress(), sanitizeCharacters(message), deliverSm.getDataCoding(), alphabet, paramsToString(deliverSm.getOptionalParameters()), smpp.toShortString());
+                    if (smpp.receiver != null) {
+                        smpp.receiver.mo(messageId, message, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress(), smpp);
                     }
                 }
             }
 
-            private String getOptionalParameterValueAsString(OptionalParameter optionalParameter) {
+            private String getOptionalParameterValueAsString(final OptionalParameter optionalParameter) {
                 if (optionalParameter == null) {
                     return null;
                 }
@@ -175,11 +226,11 @@ public class SlooceSMPPSession {
             }
 
             @Override
-            public void onAcceptAlertNotification(AlertNotification alertNotification) {
+            public void onAcceptAlertNotification(final AlertNotification alertNotification) {
             }
 
             @Override
-            public DataSmResult onAcceptDataSm(DataSm dataSm, Session source) throws ProcessRequestException {
+            public DataSmResult onAcceptDataSm(final DataSm dataSm, final Session source) throws ProcessRequestException {
                 return null;
             }
         });
@@ -187,24 +238,28 @@ public class SlooceSMPPSession {
             @Override
             public void onStateChange(final SessionState newState, final SessionState oldState, final Session source) {
                 if (newState.equals(SessionState.CLOSED)) {
-                    connected = false;
-                    logger.warn("Session closed - {}", this);
-                    receiver.onClose(smpp);
+                    if (smpp.connected) {
+                        logger.warn("Session closed - {}", smpp);
+                        smpp.connected = false;
+                        new Thread() {
+                            @Override
+                            public void run() {
+                                smpp.receiver.onClose(smpp);
+                            }
+                        }.start();
+                    } else {
+                        logger.info("Session was already closed - {}", smpp);
+                    }
                 }
             }
         });
 
-        try {
-            smppSession.connectAndBind(host, port, new BindParameter(BindType.BIND_TRX, systemId, password, systemType, TypeOfNumber.UNKNOWN, NumberingPlanIndicator.UNKNOWN, null));
-            connected = true;
-            logger.info("Connected to {} using {}@{}:{} - {}", provider, systemId, host, port, this);
-        } catch (IOException e) {
-            logger.error("Failed to connect - " + this, e);
-            throw e;
-        }
+        smppSession.connectAndBind(host, port, new BindParameter(BindType.BIND_TRX, systemId, password, systemType, TypeOfNumber.UNKNOWN, NumberingPlanIndicator.UNKNOWN, null));
+        connected = true;
+        logger.info("Connected to {} using {}@{}:{} - {}", provider, systemId, host, port, smpp);
     }
 
-    public void mt(final String message, final String subscriber, final String shortOrLongCode, final String operator)
+    public String mt(final String message, final String subscriber, final String shortOrLongCode, final String operator)
             throws InvalidResponseException, PDUException, IOException, NegativeResponseException,
             ResponseTimeoutException {
         if (provider == SlooceSMPPProvider.MBLOX) {
@@ -217,18 +272,18 @@ public class SlooceSMPPSession {
              || SlooceSMPPConstants.OPERATOR_MBLOX_VERIZON.equals(operator)) {
                 optionalParameters.add(new OptionalParameter.OctetString(SlooceSMPPConstants.TAG_MBLOX_SERVICEID, serviceId));
             }
-            sendMT(message,
+            return sendMT(message,
                     shortOrLongCode.length() < 7 ? TypeOfNumber.NETWORK_SPECIFIC : TypeOfNumber.INTERNATIONAL, shortOrLongCode,
                     TypeOfNumber.INTERNATIONAL, subscriber,
                     optionalParameters.toArray(new OptionalParameter[optionalParameters.size()]));
         } else {
-            sendMT(message,
+            return sendMT(message,
                     shortOrLongCode.length() < 7 ? TypeOfNumber.NETWORK_SPECIFIC : TypeOfNumber.INTERNATIONAL, shortOrLongCode,
                     TypeOfNumber.INTERNATIONAL, subscriber);
         }
     }
 
-    private void sendMT(final String message,
+    private String sendMT(final String message,
                         final TypeOfNumber sourceTon, final String source,
                         final TypeOfNumber destinationTon, final String destination,
                         OptionalParameter... optionalParameters)
@@ -236,48 +291,68 @@ public class SlooceSMPPSession {
             ResponseTimeoutException {
         try {
             final String messageId = smppSession.submitShortMessage(serviceType, sourceTon, NumberingPlanIndicator.UNKNOWN, source, destinationTon, NumberingPlanIndicator.UNKNOWN, destination,
-                    new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0, DataCodings.ZERO, (byte) 0, message.getBytes(),
+                    new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0, DataCodings.ZERO, (byte) 0, message.getBytes("ISO-8859-1"),
                     optionalParameters);
-            logger.info("MT sent - messageId:{} to:{} from:{} text:{} {}", messageId, destination, source, message, paramsToString(optionalParameters));
-        } catch (PDUException e) {
-            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters), e);
+            logger.info("MT sent - messageId:{} to:{} from:{} text:{}{} - {}", messageId, destination, source, message, paramsToString(optionalParameters), this.toShortString());
+            return messageId;
+        } catch (final PDUException e) {
+            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters) + " - " + this.toShortString(), e);
             throw e;
-        } catch (ResponseTimeoutException e) {
-            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters), e);
+        } catch (final ResponseTimeoutException e) {
+            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters) + " - " + this.toShortString(), e);
             throw e;
-        } catch (InvalidResponseException e) {
-            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters), e);
+        } catch (final InvalidResponseException e) {
+            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters) + " - " + this.toShortString(), e);
             throw e;
-        } catch (NegativeResponseException e) {
-            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters), e);
+        } catch (final NegativeResponseException e) {
+            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters) + " - " + this.toShortString(), e);
             throw e;
-        } catch (IOException e) {
-            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters), e);
+        } catch (final IOException e) {
+            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters) + " - " + this.toShortString(), e);
             throw e;
-        } catch (Throwable e) {
-            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters), e);
+        } catch (final Throwable e) {
+            logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters) + " - " + this.toShortString(), e);
             throw new RuntimeException(e);
         }
     }
 
     protected static String paramsToString(final OptionalParameter[] optionalParameters) {
-        StringBuilder params = new StringBuilder();
+        final StringBuilder params = new StringBuilder();
         try {
             if (optionalParameters != null) {
-                for (OptionalParameter op : optionalParameters) {
+                for (final OptionalParameter op : optionalParameters) {
                     params.append(" tag:0x").append(Integer.toHexString(op.tag));
                     params.append(" serialized:0x").append(HexUtil.conventBytesToHexString(op.serialize()));
                     if (op instanceof OptionalParameter.OctetString) {
-                        params.append(" stringValue:").append(((OptionalParameter.OctetString) op).getValueAsString());
+                        params.append(" stringValue:").append(sanitizeCharacters(((OptionalParameter.OctetString) op).getValueAsString()));
                     } else {
-                        params.append(" stringValue:").append(op.toString());
+                        params.append(" stringValue:").append(sanitizeCharacters(op.toString()));
                     }
                 }
             }
-        } catch (Throwable t) {
+        } catch (final Throwable t) {
             logger.warn("Issue in OptionalParameters paramsToString", t);
         }
         return params.toString();
+    }
+
+    private static Pattern RE_PUNCT = Pattern.compile("\\p{Punct}");
+    private static String sanitizeCharacters(final String s) {
+        if (s == null) return null;
+        if (s.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (char c : s.toCharArray()) {
+            if (c != 0) {
+                if (Character.isUnicodeIdentifierPart(c) || Character.isWhitespace(c)) {
+                    sb.append(c);
+                } else if (RE_PUNCT.matcher(Character.toString(c)).matches()) {
+                    sb.append(c);
+                } else {
+                    sb.append('.');
+                }
+            }
+        }
+        return sb.toString();
     }
 
     @Override
@@ -290,10 +365,18 @@ public class SlooceSMPPSession {
                 ", host='" + host + '\'' +
                 ", port=" + port +
                 ", systemId='" + systemId + '\'' +
-                ", password='" + password + '\'' +
                 ", systemType='" + systemType + '\'' +
                 ", stripSystemType=" + stripSystemType +
                 ", receiver=" + receiver +
+                ", smppSession=" + smppSession +
+                '}';
+    }
+
+    public String toShortString() {
+        return "SlooceSMPPSession{" +
+                "connected=" + connected +
+                ", host='" + host + '\'' +
+                ", systemId='" + systemId + '\'' +
                 ", smppSession=" + smppSession +
                 '}';
     }
