@@ -1,3 +1,4 @@
+<%@ page import="com.slooce.smpp.SlooceSMPPMessage" %>
 <%@ page import="com.slooce.smpp.SlooceSMPPProvider" %>
 <%@ page import="com.slooce.smpp.SlooceSMPPReceiver" %>
 <%@ page import="com.slooce.smpp.SlooceSMPPSession" %>
@@ -71,29 +72,27 @@
 
         if (connect1 && slooceSMPPSession1 == null) {
             slooceSMPPSession1 = new SlooceSMPPSession(SlooceSMPPProvider.valueOf(provider), serviceId, serviceType, useSSL, host, port, systemId, password, systemType, stripSystemType, new SlooceSMPPReceiver() {
-                public void mo(final String messageId, final String message, final String subscriber, final String operator,
-                               final String shortcode, final SlooceSMPPSession smpp) {
-                    log("MO Received by 1: messageId="+messageId+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
+                public void mo(final SlooceSMPPMessage mo, final SlooceSMPPSession smpp) {
+                    log("MO Received by 1: mo="+mo+",smpp="+smpp);
                 }
-                public void deliveryReceipt(String messageId, String message, String subscriber, String operator, String shortcode, DeliveryReceiptState status, String errorCode, SlooceSMPPSession smpp) {
-                    log("Delivery Receipt Received by 1: messageId="+messageId+",status="+status+",errorCode="+errorCode+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
+                public void deliveryReceipt(final SlooceSMPPMessage mt, final DeliveryReceiptState status, final String errorCode, final SlooceSMPPSession smpp) {
+                    log("Delivery Receipt Received by 1: mt="+mt+",status="+status+",errorCode="+errorCode+",smpp="+smpp);
                 }
                 public void onClose(final SlooceSMPPSession smpp) {
-                    log("Session closed by 1 - "+smpp);
+                    log("Session closed by 1: smpp="+smpp);
                 }
             });
         }
         if (connect2 && slooceSMPPSession2 == null) {
             slooceSMPPSession2 = new SlooceSMPPSession(SlooceSMPPProvider.valueOf(provider), serviceId, serviceType, useSSL, host, port, systemId, password, systemType, stripSystemType, new SlooceSMPPReceiver() {
-                public void mo(final String messageId, final String message, final String subscriber, final String operator,
-                               final String shortcode, final SlooceSMPPSession smpp) {
-                    log("MO Received by 2: messageId="+messageId+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
+                public void mo(final SlooceSMPPMessage mo, final SlooceSMPPSession smpp) {
+                    log("MO Received by 2: mo="+mo+",smpp="+smpp);
                 }
-                public void deliveryReceipt(String messageId, String message, String subscriber, String operator, String shortcode, DeliveryReceiptState status, String errorCode, SlooceSMPPSession smpp) {
-                    log("Delivery Receipt Received by 2: messageId="+messageId+",status="+status+",errorCode="+errorCode+",subscriber="+subscriber+",operator="+operator+",shortcode="+shortcode+",message="+message+" - "+smpp);
+                public void deliveryReceipt(final SlooceSMPPMessage mt, final DeliveryReceiptState status, final String errorCode, final SlooceSMPPSession smpp) {
+                    log("Delivery Receipt Received by 2: mt="+mt+",status="+status+",errorCode="+errorCode+",smpp="+smpp);
                 }
                 public void onClose(final SlooceSMPPSession smpp) {
-                    log("Session closed by 2 - "+smpp);
+                    log("Session closed by 2: smpp="+smpp);
                 }
             });
         }

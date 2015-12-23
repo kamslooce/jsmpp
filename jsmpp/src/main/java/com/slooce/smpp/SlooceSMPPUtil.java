@@ -1,6 +1,7 @@
 package com.slooce.smpp;
 
 import java.io.ByteArrayOutputStream;
+import java.util.regex.Pattern;
 
 public class SlooceSMPPUtil {
     /**
@@ -82,5 +83,24 @@ public class SlooceSMPPUtil {
             baos.write('?');
         }
         return baos.toByteArray();
+    }
+
+    public static Pattern RE_PUNCT = Pattern.compile("\\p{Punct}");
+    public static String sanitizeCharacters(final String s) {
+        if (s == null) return null;
+        if (s.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (char c : s.toCharArray()) {
+            if (c != 0) {
+                if (Character.isUnicodeIdentifierPart(c) || Character.isWhitespace(c)) {
+                    sb.append(c);
+                } else if (RE_PUNCT.matcher(Character.toString(c)).matches()) {
+                    sb.append(c);
+                } else {
+                    sb.append('.');
+                }
+            }
+        }
+        return sb.toString();
     }
 }

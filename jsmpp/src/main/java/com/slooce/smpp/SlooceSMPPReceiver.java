@@ -7,7 +7,7 @@ import org.jsmpp.util.DeliveryReceiptState;
  * This interface is an extremely simplified MessageReceiverListener.
  */
 public interface SlooceSMPPReceiver {
-    void mo(String messageId, String message, String subscriber, String operator, String shortcode, SlooceSMPPSession smpp);
-    void deliveryReceipt(String messageId, String message, String subscriber, String operator, String shortcode, DeliveryReceiptState status, String errorCode, SlooceSMPPSession smpp);
+    void mo(SlooceSMPPMessage mo, SlooceSMPPSession smpp);
+    void deliveryReceipt(SlooceSMPPMessage mt, DeliveryReceiptState status, String errorCode, SlooceSMPPSession smpp);
     void onClose(SlooceSMPPSession smpp);
 }

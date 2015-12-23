@@ -1,5 +1,7 @@
 package com.slooce.smpp;
 
+import static com.slooce.smpp.SlooceSMPPUtil.sanitizeCharacters;
+
 import org.jsmpp.DefaultPDUReader;
 import org.jsmpp.DefaultPDUSender;
 import org.jsmpp.InvalidResponseException;
@@ -13,6 +15,7 @@ import org.jsmpp.bean.DataSm;
 import org.jsmpp.bean.DeliverSm;
 import org.jsmpp.bean.DeliveryReceipt;
 import org.jsmpp.bean.ESMClass;
+import org.jsmpp.bean.GSMSpecificFeature;
 import org.jsmpp.bean.MessageType;
 import org.jsmpp.bean.NumberingPlanIndicator;
 import org.jsmpp.bean.OptionalParameter;
@@ -31,10 +34,11 @@ import org.jsmpp.session.SMPPSession;
 import org.jsmpp.session.Session;
 import org.jsmpp.session.SessionStateListener;
 import org.jsmpp.util.DefaultComposer;
-import org.jsmpp.util.HexUtil;
 import org.jsmpp.util.InvalidDeliveryReceiptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.jsmpp.util.HexUtil.conventBytesToHexString;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -174,16 +178,19 @@ public class SlooceSMPPSession {
                             messageId = Integer.toHexString(Integer.valueOf(messageId));
                         }
                         final String operator = getOptionalParameterValueAsString(OptionalParameters.get(smpp.provider.getOperatorTag(), deliverSm.getOptionalParameters()));
+                        final SlooceSMPPMessage mt = new SlooceSMPPMessage(messageId, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress());
                         String message;
                         if (alphabet == Alphabet.ALPHA_DEFAULT) {
                             message = SlooceSMPPUtil.fromGSMCharset(delReceipt.getText().getBytes());
                         } else {
                             message = delReceipt.getText();
                         }
-                        logger.info("Received delivery receipt - messageId:{} from:{} operator:{} to:{} text:{} dataCoding:{} alphabet:{} {}{} - {}",
-                                messageId, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress(), sanitizeCharacters(message), deliverSm.getDataCoding(), alphabet, sanitizeCharacters(delReceipt.toString()), paramsToString(deliverSm.getOptionalParameters()), smpp.toShortString());
+                        mt.setMessage(message);
+                        logger.info("Received delivery receipt - mt:{} dataCoding:{} alphabet:{} esmClass:0x{} {}{} - {}",
+                                mt, deliverSm.getDataCoding(), alphabet, conventBytesToHexString(new byte[]{deliverSm.getEsmClass()}),
+                                sanitizeCharacters(delReceipt.toString()), paramsToString(deliverSm.getOptionalParameters()), smpp.toShortString());
                         if (smpp.receiver != null) {
-                            smpp.receiver.deliveryReceipt(messageId, message, deliverSm.getDestAddress(), operator, deliverSm.getSourceAddr(), delReceipt.getFinalStatus(), delReceipt.getError(), smpp);
+                            smpp.receiver.deliveryReceipt(mt, delReceipt.getFinalStatus(), delReceipt.getError(), smpp);
                         }
                     } catch (InvalidDeliveryReceiptException e) {
                         logger.error("Failed getting delivery receipt - " + smpp.toShortString(), e);
@@ -192,24 +199,49 @@ public class SlooceSMPPSession {
                     // this message is an incoming MO
                     final String messageId = getOptionalParameterValueAsString(deliverSm.getOptionalParameter(OptionalParameter.Tag.RECEIPTED_MESSAGE_ID));
                     final String operator = getOptionalParameterValueAsString(OptionalParameters.get(smpp.provider.getOperatorTag(), deliverSm.getOptionalParameters()));
+                    byte[] messageBytes = deliverSm.getShortMessage();
+                    byte[] udhBytes = new byte[0];
+                    final SlooceSMPPMessage mo = new SlooceSMPPMessage(messageId, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress());
+                    final boolean hasUDHI = GSMSpecificFeature.UDHI.containedIn(deliverSm.getEsmClass());
+                    if (hasUDHI) {
+                        final int udhLength = messageBytes[0];
+                        udhBytes = new byte[udhLength + 1];
+                        System.arraycopy(messageBytes, 0, udhBytes, 0, udhLength + 1);
+                        byte[] messageBytesCopy = new byte[messageBytes.length - udhLength - 1];
+                        System.arraycopy(messageBytes, udhLength + 1, messageBytesCopy, 0, messageBytes.length - udhLength - 1);
+                        messageBytes = messageBytesCopy;
+                        if (udhBytes[1] == 0x00) { // Concatenated short messages, 8-bit reference number
+                            mo.setCsmsReference(udhBytes[3] & 0xff);
+                            mo.setCsmsTotalParts(udhBytes[4] & 0xff);
+                            mo.setCsmsPartNumber(udhBytes[5] & 0xff);
+                        } else if (udhBytes[1] == 0x08) { // Concatenated short messages, 16-bit reference number
+                            mo.setCsmsReference(((udhBytes[3] & 0xff) << 8) | (udhBytes[4] & 0xff));
+                            mo.setCsmsTotalParts(udhBytes[5] & 0xff);
+                            mo.setCsmsPartNumber(udhBytes[6] & 0xff);
+                        } else { // unsupported
+                            logger.warn("Unsupported udh:{}", conventBytesToHexString(udhBytes));
+                        }
+                    }
                     String message;
                     if (alphabet == Alphabet.ALPHA_DEFAULT) {
-                        message = SlooceSMPPUtil.fromGSMCharset(deliverSm.getShortMessage());
+                        message = SlooceSMPPUtil.fromGSMCharset(messageBytes);
                     } else {
                         try {
-                            message = new String(deliverSm.getShortMessage(), "ISO-8859-1");
+                            message = new String(messageBytes, "ISO-8859-1");
                         } catch (UnsupportedEncodingException e) {
                             logger.warn(e.getMessage());
-                            message = new String(deliverSm.getShortMessage());
+                            message = new String(messageBytes);
                         }
                     }
                     if (smpp.stripSystemType && smpp.systemType != null) {
                         message = Pattern.compile(smpp.systemType + "\\s*", Pattern.CASE_INSENSITIVE).matcher(message).replaceFirst("");
                     }
-                    logger.info("Received message - messageId:{} from:{} operator:{} to:{} text:{} dataCoding:{} alphabet:{}{} - {}",
-                            messageId, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress(), sanitizeCharacters(message), deliverSm.getDataCoding(), alphabet, paramsToString(deliverSm.getOptionalParameters()), smpp.toShortString());
+                    mo.setMessage(message);
+                    logger.info("Received message - mo:{} dataCoding:{} alphabet:{} esmClass:0x{} udh:0x{}{} - {}",
+                            mo, deliverSm.getDataCoding(), alphabet, conventBytesToHexString(new byte[]{deliverSm.getEsmClass()}), conventBytesToHexString(udhBytes),
+                            paramsToString(deliverSm.getOptionalParameters()), smpp.toShortString());
                     if (smpp.receiver != null) {
-                        smpp.receiver.mo(messageId, message, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress(), smpp);
+                        smpp.receiver.mo(mo, smpp);
                     }
                 }
             }
@@ -322,7 +354,7 @@ public class SlooceSMPPSession {
             if (optionalParameters != null) {
                 for (final OptionalParameter op : optionalParameters) {
                     params.append(" tag:0x").append(Integer.toHexString(op.tag));
-                    params.append(" serialized:0x").append(HexUtil.conventBytesToHexString(op.serialize()));
+                    params.append(" serialized:0x").append(conventBytesToHexString(op.serialize()));
                     if (op instanceof OptionalParameter.OctetString) {
                         params.append(" stringValue:").append(sanitizeCharacters(((OptionalParameter.OctetString) op).getValueAsString()));
                     } else {
@@ -334,25 +366,6 @@ public class SlooceSMPPSession {
             logger.warn("Issue in OptionalParameters paramsToString", t);
         }
         return params.toString();
-    }
-
-    private static Pattern RE_PUNCT = Pattern.compile("\\p{Punct}");
-    private static String sanitizeCharacters(final String s) {
-        if (s == null) return null;
-        if (s.isEmpty()) return "";
-        StringBuilder sb = new StringBuilder();
-        for (char c : s.toCharArray()) {
-            if (c != 0) {
-                if (Character.isUnicodeIdentifierPart(c) || Character.isWhitespace(c)) {
-                    sb.append(c);
-                } else if (RE_PUNCT.matcher(Character.toString(c)).matches()) {
-                    sb.append(c);
-                } else {
-                    sb.append('.');
-                }
-            }
-        }
-        return sb.toString();
     }
 
     @Override
