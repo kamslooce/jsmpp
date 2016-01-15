@@ -225,6 +225,13 @@ public class SlooceSMPPSession {
                     String message;
                     if (alphabet == Alphabet.ALPHA_DEFAULT) {
                         message = SlooceSMPPUtil.fromGSMCharset(messageBytes);
+                    } else if (alphabet == Alphabet.ALPHA_UCS2) {
+                        try {
+                            message = new String(messageBytes, "UTF-16");
+                        } catch (UnsupportedEncodingException e) {
+                            logger.warn(e.getMessage());
+                            message = new String(messageBytes);
+                        }
                     } else {
                         try {
                             message = new String(messageBytes, "ISO-8859-1");

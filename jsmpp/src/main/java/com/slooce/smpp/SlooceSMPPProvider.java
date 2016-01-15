@@ -34,15 +34,21 @@ public enum SlooceSMPPProvider {
     }
 
     public Alphabet getAlphabet(final DeliverSm deliverSm, final Logger logger) {
-        if (alphabet != null) {
-            return alphabet;
-        }
+        Alphabet parsedAlphabet;
         try {
-            return Alphabet.parseDataCoding(deliverSm.getDataCoding());
+            parsedAlphabet = Alphabet.parseDataCoding(deliverSm.getDataCoding());
         } catch (Exception e) {
             logger.warn(e.getMessage());
+            parsedAlphabet = Alphabet.ALPHA_DEFAULT;
         }
-        return Alphabet.ALPHA_DEFAULT;
+        if ((parsedAlphabet == Alphabet.ALPHA_DEFAULT || parsedAlphabet == Alphabet.ALPHA_IA5) && alphabet != null) {
+            // if 0x00 or 0x01, use the expected alphabet
+            // mblox sends latin1 with dataCoding:0
+            // infobip sends gsm with dataCoding:0 or dataCoding:1
+            return alphabet;
+        }
+        // both mblox and infobip send ucs-2 with dataCoding:8
+        return parsedAlphabet;
     }
 
     public int getEnquireLinkTimer() {
