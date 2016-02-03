@@ -175,7 +175,7 @@ public class SlooceSMPPSession {
                         if (smpp.provider.isMessageIdDecimal()) {
                             // Provider sends the messageId in a delivery receipt as a decimal value string per the SMPP spec.
                             // Convert it to hex to match the messageId hex string returned when submitting the MT.
-                            messageId = Integer.toHexString(Integer.valueOf(messageId));
+                            messageId = Long.toHexString(Long.valueOf(messageId));
                         }
                         final String operator = getOptionalParameterValueAsString(OptionalParameters.get(smpp.provider.getOperatorTag(), deliverSm.getOptionalParameters()));
                         final SlooceSMPPMessage mt = new SlooceSMPPMessage(messageId, deliverSm.getSourceAddr(), operator, deliverSm.getDestAddress());
