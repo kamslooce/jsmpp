@@ -307,8 +307,9 @@ public class SlooceSMPPSession {
             optionalParameters.add(new OptionalParameter.OctetString(SlooceSMPPConstants.TAG_MBLOX_OPERATOR, operator));
             optionalParameters.add(new OptionalParameter.OctetString(SlooceSMPPConstants.TAG_MBLOX_TARIFF, "0"));
             // ServiceId is required for TMobile and Verizon
-            if (SlooceSMPPConstants.OPERATOR_MBLOX_T_MOBILE.equals(operator)
-             || SlooceSMPPConstants.OPERATOR_MBLOX_VERIZON.equals(operator)) {
+            if (serviceId != null
+             && (SlooceSMPPConstants.OPERATOR_MBLOX_T_MOBILE.equals(operator)
+                 || SlooceSMPPConstants.OPERATOR_MBLOX_VERIZON.equals(operator))) {
                 optionalParameters.add(new OptionalParameter.OctetString(SlooceSMPPConstants.TAG_MBLOX_SERVICEID, serviceId));
             }
             return sendMT(message,
