@@ -166,6 +166,13 @@ public class SlooceSMPPSession {
         smppSession.setMessageReceiverListener(new MessageReceiverListener() {
             @Override
             public void onAcceptDeliverSm(final DeliverSm deliverSm) throws ProcessRequestException {
+                try {
+                    doAcceptDeliverSm(deliverSm);
+                } catch (Throwable t) {
+                    logger.error("Failed to process incoming SMPP message " + deliverSm.toDebugString(), t);
+                }
+            }
+            public void doAcceptDeliverSm(final DeliverSm deliverSm) throws ProcessRequestException {
                 final Alphabet alphabet = smpp.provider.getAlphabet(deliverSm, logger);
                 if (MessageType.SMSC_DEL_RECEIPT.containedIn(deliverSm.getEsmClass())) {
                     // this message is a delivery receipt

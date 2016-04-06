@@ -15,6 +15,7 @@
 package org.jsmpp.bean;
 
 import org.jsmpp.SMPPConstant;
+import org.jsmpp.util.HexUtil;
 import org.jsmpp.util.InvalidDeliveryReceiptException;
 
 /**
@@ -22,7 +23,9 @@ import org.jsmpp.util.InvalidDeliveryReceiptException;
  *
  */
 public class DeliverSm extends MessageRequest {
-    
+
+	protected byte[] pdu;
+
 	public DeliverSm() {
 		super();
 	}
@@ -341,5 +344,17 @@ public class DeliverSm extends MessageRequest {
 	 */
 	public static final byte composeSmeDeliveryAndManualAckRequested(byte registeredDelivery) {
 		return composeSmeAck(registeredDelivery, SMPPConstant.REGDEL_SME_DELIVERY_MANUAL_ACK_REQUESTED);
+	}
+
+	public byte[] getPdu() {
+		return pdu;
+	}
+
+	public void setPdu(final byte[] pdu) {
+		this.pdu = pdu;
+	}
+
+	public String toDebugString() {
+		return super.toString() + " " + HexUtil.convertBytesToHexString(pdu, 16, pdu.length, " ");
 	}
 }

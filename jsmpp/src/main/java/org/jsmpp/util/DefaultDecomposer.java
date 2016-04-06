@@ -328,6 +328,7 @@ public class DefaultDecomposer implements PDUDecomposer {
      */
     public DeliverSm deliverSm(byte[] b) throws PDUStringException {
         DeliverSm req = new DeliverSm();
+        req.setPdu(b);
         SequentialBytesReader reader = new SequentialBytesReader(b);
         assignHeader(req, reader);
         req.setServiceType(reader.readCString());
