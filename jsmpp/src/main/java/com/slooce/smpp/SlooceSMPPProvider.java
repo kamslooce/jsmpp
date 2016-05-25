@@ -9,7 +9,8 @@ import org.slf4j.Logger;
 public enum SlooceSMPPProvider {
     MBLOX(TAG_MBLOX_OPERATOR, true, Alphabet.ALPHA_LATIN1, 30000 /* 60 sec inactivity timeout */, 20000 /* sometimes takes 14 sec to get response */),
     INFOBIP(TAG_INFOBIP_OPERATOR_MCCMNC, false, Alphabet.ALPHA_DEFAULT, 20000 /* 30 sec inactivity timeout */, 10000),
-    OPEN_MARKET(TAG_OPEN_MARKET_OPERATOR, false, null, 20000 /* 30 sec inactivity timeout */, 10000);
+    OPEN_MARKET(TAG_OPEN_MARKET_OPERATOR, false, null, 20000 /* 30 sec inactivity timeout */, 10000),
+    MT_RESPONDER(TAG_MBLOX_OPERATOR, true, Alphabet.ALPHA_LATIN1, 20000 /* 30 sec inactivity timeout */, 10000);
 
     private short operatorTag;
     private boolean messageIdDecimal;
