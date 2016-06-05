@@ -10,7 +10,6 @@ import org.jsmpp.SynchronizedPDUSender;
 import org.jsmpp.bean.AlertNotification;
 import org.jsmpp.bean.Alphabet;
 import org.jsmpp.bean.BindType;
-import org.jsmpp.bean.DataCodings;
 import org.jsmpp.bean.DataSm;
 import org.jsmpp.bean.DeliverSm;
 import org.jsmpp.bean.DeliveryReceipt;
@@ -337,8 +336,11 @@ public class SlooceSMPPSession {
             throws InvalidResponseException, PDUException, IOException, NegativeResponseException,
             ResponseTimeoutException {
         try {
-            final String messageId = smppSession.submitShortMessage(serviceType, sourceTon, NumberingPlanIndicator.UNKNOWN, source, destinationTon, NumberingPlanIndicator.UNKNOWN, destination,
-                    new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0, DataCodings.ZERO, (byte) 0, message.getBytes("ISO-8859-1"),
+            final String messageId = smppSession.submitShortMessage(serviceType,
+                    sourceTon, NumberingPlanIndicator.UNKNOWN, source,
+                    destinationTon, NumberingPlanIndicator.UNKNOWN, destination,
+                    new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0,
+                    provider.getDataCoding(), (byte) 0, message.getBytes("ISO-8859-1"),
                     optionalParameters);
             logger.info("MT sent - messageId:{} to:{} from:{} text:{}{} - {}", messageId, destination, source, message, paramsToString(optionalParameters), this.toShortString());
             return messageId;

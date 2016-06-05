@@ -3,25 +3,30 @@ package com.slooce.smpp;
 import static com.slooce.smpp.SlooceSMPPConstants.*;
 
 import org.jsmpp.bean.Alphabet;
+import org.jsmpp.bean.DataCoding;
+import org.jsmpp.bean.DataCodings;
 import org.jsmpp.bean.DeliverSm;
+import org.jsmpp.bean.GeneralDataCoding;
 import org.slf4j.Logger;
 
 public enum SlooceSMPPProvider {
-    MBLOX(TAG_MBLOX_OPERATOR, true, Alphabet.ALPHA_LATIN1, 30000 /* 60 sec inactivity timeout */, 20000 /* sometimes takes 14 sec to get response */),
-    INFOBIP(TAG_INFOBIP_OPERATOR_MCCMNC, false, Alphabet.ALPHA_DEFAULT, 20000 /* 30 sec inactivity timeout */, 10000),
-    OPEN_MARKET(TAG_OPEN_MARKET_OPERATOR, false, null, 20000 /* 30 sec inactivity timeout */, 10000),
-    MT_RESPONDER(TAG_MBLOX_OPERATOR, true, Alphabet.ALPHA_LATIN1, 20000 /* 30 sec inactivity timeout */, 10000);
+    MBLOX(TAG_MBLOX_OPERATOR, true, Alphabet.ALPHA_LATIN1, DataCodings.ZERO, 30000 /* 60 sec inactivity timeout */, 20000 /* sometimes takes 14 sec to get response */),
+    INFOBIP(TAG_INFOBIP_OPERATOR_MCCMNC, false, Alphabet.ALPHA_DEFAULT, new GeneralDataCoding(Alphabet.ALPHA_LATIN1), 20000 /* 30 sec inactivity timeout */, 10000),
+    OPEN_MARKET(TAG_OPEN_MARKET_OPERATOR, false, null, DataCodings.ZERO, 20000 /* 30 sec inactivity timeout */, 10000),
+    MT_RESPONDER(TAG_MBLOX_OPERATOR, true, Alphabet.ALPHA_LATIN1, DataCodings.ZERO, 20000 /* 30 sec inactivity timeout */, 10000);
 
     private short operatorTag;
     private boolean messageIdDecimal;
     private Alphabet alphabet;
+    private DataCoding dataCoding;
     private int enquireLinkTimer;
     private int transactionTimer;
 
-    SlooceSMPPProvider(final short operatorTag, final boolean messageIdDecimal, final Alphabet alphabet, final int enquireLinkTimer, final int transactionTimer) {
+    SlooceSMPPProvider(final short operatorTag, final boolean messageIdDecimal, final Alphabet alphabet, final DataCoding dataCoding, final int enquireLinkTimer, final int transactionTimer) {
         this.operatorTag = operatorTag;
         this.messageIdDecimal = messageIdDecimal;
         this.alphabet = alphabet;
+        this.dataCoding = dataCoding;
         this.enquireLinkTimer = enquireLinkTimer;
         this.transactionTimer = transactionTimer;
     }
@@ -50,6 +55,10 @@ public enum SlooceSMPPProvider {
         }
         // both mblox and infobip send ucs-2 with dataCoding:8
         return parsedAlphabet;
+    }
+
+    public DataCoding getDataCoding() {
+        return dataCoding;
     }
 
     public int getEnquireLinkTimer() {
