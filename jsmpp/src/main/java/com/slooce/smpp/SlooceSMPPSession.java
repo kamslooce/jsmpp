@@ -36,7 +36,6 @@ import org.jsmpp.util.DefaultComposer;
 import org.jsmpp.util.InvalidDeliveryReceiptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import static org.jsmpp.util.HexUtil.conventBytesToHexString;
 
 import java.io.IOException;
@@ -172,13 +171,13 @@ public class SlooceSMPPSession {
                 }
             }
             public void doAcceptDeliverSm(final DeliverSm deliverSm) throws ProcessRequestException {
-                final Alphabet alphabet = smpp.provider.getAlphabet(deliverSm, logger);
+                final Alphabet alphabet = smpp.provider.getIncomingAlphabet(deliverSm, logger);
                 if (MessageType.SMSC_DEL_RECEIPT.containedIn(deliverSm.getEsmClass())) {
                     // this message is a delivery receipt
                     try {
                         final DeliveryReceipt delReceipt = deliverSm.getShortMessageAsDeliveryReceipt();
                         String messageId = delReceipt.getId();
-                        if (smpp.provider.isMessageIdDecimal()) {
+                        if (smpp.provider.isIncomingMessageIdDecimal()) {
                             // Provider sends the messageId in a delivery receipt as a decimal value string per the SMPP spec.
                             // Convert it to hex to match the messageId hex string returned when submitting the MT.
                             messageId = Long.toHexString(Long.valueOf(messageId));
@@ -337,10 +336,10 @@ public class SlooceSMPPSession {
             ResponseTimeoutException {
         try {
             final String messageId = smppSession.submitShortMessage(serviceType,
-                    sourceTon, NumberingPlanIndicator.UNKNOWN, source,
-                    destinationTon, NumberingPlanIndicator.UNKNOWN, destination,
+                    sourceTon, provider.getOutgoingNumberingPlanIndicator(), source,
+                    destinationTon, provider.getOutgoingNumberingPlanIndicator(), destination,
                     new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0,
-                    provider.getDataCoding(), (byte) 0, message.getBytes("ISO-8859-1"),
+                    provider.getOutgoingDataCoding(), (byte) 0, message.getBytes("ISO-8859-1"),
                     optionalParameters);
             logger.info("MT sent - messageId:{} to:{} from:{} text:{}{} - {}", messageId, destination, source, message, paramsToString(optionalParameters), this.toShortString());
             return messageId;

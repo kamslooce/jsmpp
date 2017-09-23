@@ -12,4 +12,7 @@ public interface SlooceSMPPConstants {
 
     String OPERATOR_MBLOX_T_MOBILE = "31004";
     String OPERATOR_MBLOX_VERIZON = "31003";
+
+    boolean DECIMAL_MSG_ID = true;
+    boolean HEX_MSG_ID = false;
 }
