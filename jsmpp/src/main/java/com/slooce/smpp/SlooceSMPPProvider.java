@@ -2,6 +2,7 @@ package com.slooce.smpp;
 
 import static com.slooce.smpp.SlooceSMPPConstants.DECIMAL_MSG_ID;
 import static com.slooce.smpp.SlooceSMPPConstants.HEX_MSG_ID;
+import static com.slooce.smpp.SlooceSMPPConstants.TAG_CLX_OPERATOR_MCCMNC;
 import static com.slooce.smpp.SlooceSMPPConstants.TAG_INFOBIP_OPERATOR_MCCMNC;
 import static com.slooce.smpp.SlooceSMPPConstants.TAG_MBLOX_OPERATOR;
 import static com.slooce.smpp.SlooceSMPPConstants.TAG_OPEN_MARKET_OPERATOR;
@@ -22,7 +23,7 @@ import static org.jsmpp.bean.NumberingPlanIndicator.UNKNOWN;
 public enum SlooceSMPPProvider {
     MBLOX(TAG_MBLOX_OPERATOR, DECIMAL_MSG_ID, ALPHA_LATIN1, ZERO, UNKNOWN, 30000 /* 60 sec inactivity timeout */, 20000 /* sometimes takes 14 sec to get response */),
     MBLOX_ATLAS(TAG_MBLOX_OPERATOR, HEX_MSG_ID, ALPHA_LATIN1, new GeneralDataCoding(ALPHA_LATIN1), UNKNOWN, 30000 /* 60 sec inactivity timeout */, 20000 /* sometimes takes 14 sec to get response */),
-    CLX(TAG_MBLOX_OPERATOR, HEX_MSG_ID, ALPHA_DEFAULT, new GeneralDataCoding(ALPHA_LATIN1), ISDN, 30000 /* 60 sec inactivity timeout */, 20000 /* sometimes takes 14 sec to get response */),
+    CLX(TAG_CLX_OPERATOR_MCCMNC, HEX_MSG_ID, ALPHA_DEFAULT, new GeneralDataCoding(ALPHA_LATIN1), ISDN, 30000 /* 60 sec inactivity timeout */, 20000 /* sometimes takes 14 sec to get response */),
     INFOBIP(TAG_INFOBIP_OPERATOR_MCCMNC, HEX_MSG_ID, ALPHA_DEFAULT, new GeneralDataCoding(ALPHA_LATIN1), UNKNOWN, 20000 /* 30 sec inactivity timeout */, 10000),
     OPEN_MARKET(TAG_OPEN_MARKET_OPERATOR, HEX_MSG_ID, null, ZERO, UNKNOWN, 20000 /* 30 sec inactivity timeout */, 10000),
     MT_RESPONDER(TAG_MBLOX_OPERATOR, DECIMAL_MSG_ID, ALPHA_LATIN1, ZERO, UNKNOWN, 20000 /* 30 sec inactivity timeout */, 10000);

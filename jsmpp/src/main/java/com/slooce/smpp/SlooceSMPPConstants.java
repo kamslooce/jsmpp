@@ -2,6 +2,7 @@ package com.slooce.smpp;
 
 public interface SlooceSMPPConstants {
 
+    short TAG_CLX_OPERATOR_MCCMNC = (short) 0x1403;
     short TAG_MBLOX_OPERATOR = (short) 0x1402;
     short TAG_MBLOX_TARIFF = (short) 0x1403;
     short TAG_MBLOX_SERVICEID = (short) 0x1407;
