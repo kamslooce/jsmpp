@@ -298,7 +298,7 @@ public class SlooceSMPPSession {
             }
         });
 
-        smppSession.connectAndBind(host, port, new BindParameter(BindType.BIND_TRX, systemId, password, systemType, TypeOfNumber.UNKNOWN, NumberingPlanIndicator.UNKNOWN, null));
+        smppSession.connectAndBind(host, port, new BindParameter(BindType.BIND_TRX, systemId, password, systemType, TypeOfNumber.UNKNOWN, NumberingPlanIndicator.UNKNOWN, null), 15000);
         connected = true;
         logger.info("Connected to {} using {}@{}:{} - {}", provider, systemId, host, port, smpp);
     }
