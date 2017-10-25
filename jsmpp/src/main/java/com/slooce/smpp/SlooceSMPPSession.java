@@ -341,7 +341,9 @@ public class SlooceSMPPSession {
                     new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0,
                     provider.getOutgoingDataCoding(), (byte) 0, message.getBytes("ISO-8859-1"),
                     optionalParameters);
-            logger.info("MT sent - messageId:{} to:{} from:{} text:{}{} - {}", messageId, destination, source, message, paramsToString(optionalParameters), this.toShortString());
+            if (logger.isDebugEnabled()) {
+                logger.debug("MT sent - messageId:{} to:{} from:{} text:{}{} - {}", messageId, destination, source, message, paramsToString(optionalParameters), this.toShortString());
+            }
             return messageId;
         } catch (final PDUException e) {
             logger.error("Failed to send MT - to:" + destination + " from:" + source + " text:" + message + paramsToString(optionalParameters) + " - " + this.toShortString(), e);
