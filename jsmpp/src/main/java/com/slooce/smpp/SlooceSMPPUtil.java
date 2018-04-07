@@ -35,6 +35,84 @@ public class SlooceSMPPUtil {
             {60, 91},   {61, 126},  {62, 93},   {64, 124},  {101, 164}
     };
 
+    /**
+     * Found 72 unsupported Latin chars by actually sending all 191 printable ISO-8859-1 chars via INFOBIP
+     */
+    public static final int[] UNSUPPORTED_LATIN_CHARS = {
+            96,
+            125,
+            162,
+            164,
+            166,
+            168,
+            166,
+            167,
+            168,
+            169,
+            170,
+            171,
+            172,
+            173,
+            174,
+            175,
+            176,
+            177,
+            178,
+            179,
+            180,
+            181,
+            182,
+            183,
+            184,
+            185,
+            186,
+            187,
+            188,
+            189,
+            190,
+            192,
+            193,
+            194,
+            195,
+            200,
+            202,
+            203,
+            204,
+            205,
+            206,
+            207,
+            208,
+            210,
+            211,
+            212,
+            213,
+            215,
+            217,
+            218,
+            219,
+            221,
+            222,
+            225,
+            226,
+            227,
+            231,
+            233,
+            234,
+            237,
+            238,
+            239,
+            240,
+            243,
+            244,
+            245,
+            247,
+            250,
+            251,
+            253,
+            254,
+            255
+    };
+
     public static String fromGSMCharset(byte[] aMessage) {
         StringBuilder builder = new StringBuilder(aMessage.length);
         outer:
@@ -102,5 +180,23 @@ public class SlooceSMPPUtil {
             }
         }
         return sb.toString();
+    }
+
+    public static boolean isLatinCharset(final String s) {
+        if (s == null || s.isEmpty()) {
+            return true;
+        }
+        for (int c : s.toCharArray()) {
+            final Character.UnicodeBlock unicodeBlock = Character.UnicodeBlock.of(c);
+            if (unicodeBlock != Character.UnicodeBlock.BASIC_LATIN && unicodeBlock != Character.UnicodeBlock.LATIN_1_SUPPLEMENT) {
+                return false;
+            }
+            for (int uc : UNSUPPORTED_LATIN_CHARS) {
+                if (c == uc) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }

@@ -15,6 +15,7 @@ import org.jsmpp.bean.DeliverSm;
 import org.jsmpp.bean.DeliveryReceipt;
 import org.jsmpp.bean.ESMClass;
 import org.jsmpp.bean.GSMSpecificFeature;
+import org.jsmpp.bean.GeneralDataCoding;
 import org.jsmpp.bean.MessageType;
 import org.jsmpp.bean.NumberingPlanIndicator;
 import org.jsmpp.bean.OptionalParameter;
@@ -36,6 +37,9 @@ import org.jsmpp.util.DefaultComposer;
 import org.jsmpp.util.InvalidDeliveryReceiptException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_16;
 import static org.jsmpp.util.HexUtil.conventBytesToHexString;
 
 import java.io.IOException;
@@ -335,11 +339,14 @@ public class SlooceSMPPSession {
             throws InvalidResponseException, PDUException, IOException, NegativeResponseException,
             ResponseTimeoutException {
         try {
+            final boolean isLatinCharset = SlooceSMPPUtil.isLatinCharset(message);
             final String messageId = smppSession.submitShortMessage(serviceType,
                     sourceTon, provider.getOutgoingNumberingPlanIndicator(), source,
                     destinationTon, provider.getOutgoingNumberingPlanIndicator(), destination,
                     new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0,
-                    provider.getOutgoingDataCoding(), (byte) 0, message.getBytes("ISO-8859-1"),
+                    isLatinCharset ? provider.getOutgoingDataCoding() : new GeneralDataCoding(Alphabet.ALPHA_UCS2),
+                    (byte) 0,
+                    message.getBytes(isLatinCharset ? ISO_8859_1.name() : UTF_16.name()),
                     optionalParameters);
             if (logger.isDebugEnabled()) {
                 logger.debug("MT sent - messageId:{} to:{} from:{} text:{}{} - {}", messageId, destination, source, message, paramsToString(optionalParameters), this.toShortString());
