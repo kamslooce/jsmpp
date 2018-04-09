@@ -346,7 +346,7 @@ public class SlooceSMPPSession {
                     new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0,
                     isLatinCharset ? provider.getOutgoingDataCoding() : new GeneralDataCoding(Alphabet.ALPHA_UCS2),
                     (byte) 0,
-                    message.getBytes(isLatinCharset ? ISO_8859_1.name() : UTF_16.name()),
+                    SlooceSMPPUtil.getBytes(message, isLatinCharset ? ISO_8859_1 : UTF_16),
                     optionalParameters);
             if (logger.isDebugEnabled()) {
                 logger.debug("MT sent - messageId:{} to:{} from:{} text:{}{} - {}", messageId, destination, source, message, paramsToString(optionalParameters), this.toShortString());

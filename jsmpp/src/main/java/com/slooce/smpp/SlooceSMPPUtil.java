@@ -1,7 +1,10 @@
 package com.slooce.smpp;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.Charset;
 import java.util.regex.Pattern;
+
+import static java.nio.charset.StandardCharsets.UTF_16;
 
 public class SlooceSMPPUtil {
     /**
@@ -33,84 +36,6 @@ public class SlooceSMPPUtil {
     public static final short[][] ISO_GSM_0338_EXT = {
             {10, 12},   {20, 94},   {40, 123},  {41, 125},  {47, 92},
             {60, 91},   {61, 126},  {62, 93},   {64, 124},  {101, 164}
-    };
-
-    /**
-     * Found 72 unsupported Latin chars by actually sending all 191 printable ISO-8859-1 chars via INFOBIP
-     */
-    public static final int[] UNSUPPORTED_LATIN_CHARS = {
-            96,
-            125,
-            162,
-            164,
-            166,
-            168,
-            166,
-            167,
-            168,
-            169,
-            170,
-            171,
-            172,
-            173,
-            174,
-            175,
-            176,
-            177,
-            178,
-            179,
-            180,
-            181,
-            182,
-            183,
-            184,
-            185,
-            186,
-            187,
-            188,
-            189,
-            190,
-            192,
-            193,
-            194,
-            195,
-            200,
-            202,
-            203,
-            204,
-            205,
-            206,
-            207,
-            208,
-            210,
-            211,
-            212,
-            213,
-            215,
-            217,
-            218,
-            219,
-            221,
-            222,
-            225,
-            226,
-            227,
-            231,
-            233,
-            234,
-            237,
-            238,
-            239,
-            240,
-            243,
-            244,
-            245,
-            247,
-            250,
-            251,
-            253,
-            254,
-            255
     };
 
     public static String fromGSMCharset(byte[] aMessage) {
@@ -191,12 +116,18 @@ public class SlooceSMPPUtil {
             if (unicodeBlock != Character.UnicodeBlock.BASIC_LATIN && unicodeBlock != Character.UnicodeBlock.LATIN_1_SUPPLEMENT) {
                 return false;
             }
-            for (int uc : UNSUPPORTED_LATIN_CHARS) {
-                if (c == uc) {
-                    return false;
-                }
-            }
         }
         return true;
+    }
+
+    public static byte[] getBytes(String message, Charset charset) {
+        final byte[] bytes = message.getBytes(charset);
+        if (charset.equals(UTF_16)) {
+            // remove the leading bom
+            byte[] bytesWithoutBOM = new byte[bytes.length-2];
+            System.arraycopy(bytes, 2, bytesWithoutBOM, 0, bytes.length-2);
+            return bytesWithoutBOM;
+        }
+        return bytes;
     }
 }
