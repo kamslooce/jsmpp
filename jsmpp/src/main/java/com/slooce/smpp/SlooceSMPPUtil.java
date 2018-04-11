@@ -2,6 +2,7 @@ package com.slooce.smpp;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.Charset;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.nio.charset.StandardCharsets.UTF_16;
@@ -88,7 +89,7 @@ public class SlooceSMPPUtil {
         return baos.toByteArray();
     }
 
-    public static Pattern RE_PUNCT = Pattern.compile("\\p{Punct}");
+    public static final Pattern RE_PUNCT = Pattern.compile("\\p{Punct}");
     public static String sanitizeCharacters(final String s) {
         if (s == null) return null;
         if (s.isEmpty()) return "";
@@ -107,17 +108,17 @@ public class SlooceSMPPUtil {
         return sb.toString();
     }
 
-    public static boolean isLatinCharset(final String s) {
-        if (s == null || s.isEmpty()) {
-            return true;
+    public static boolean hasSpecialCharacters(final String s) {
+        return indexOfSpecialCharacter(s) >= 0;
+    }
+
+    private static final Pattern SPECIAL_CHARACTERS = Pattern.compile("[^-A-Za-z0-9@$_/.,\"():;-=+*&%#!?<>' \n\r]");
+    public static int indexOfSpecialCharacter(String s) {
+        final Matcher matcher = SPECIAL_CHARACTERS.matcher(s);
+        if (matcher.find()) {
+            return matcher.start();
         }
-        for (int c : s.toCharArray()) {
-            final Character.UnicodeBlock unicodeBlock = Character.UnicodeBlock.of(c);
-            if (unicodeBlock != Character.UnicodeBlock.BASIC_LATIN && unicodeBlock != Character.UnicodeBlock.LATIN_1_SUPPLEMENT) {
-                return false;
-            }
-        }
-        return true;
+        return -1;
     }
 
     public static byte[] getBytes(String message, Charset charset) {

@@ -339,14 +339,14 @@ public class SlooceSMPPSession {
             throws InvalidResponseException, PDUException, IOException, NegativeResponseException,
             ResponseTimeoutException {
         try {
-            final boolean isLatinCharset = SlooceSMPPUtil.isLatinCharset(message);
+            final boolean hasSpecialCharacters = SlooceSMPPUtil.hasSpecialCharacters(message);
             final String messageId = smppSession.submitShortMessage(serviceType,
                     sourceTon, provider.getOutgoingNumberingPlanIndicator(), source,
                     destinationTon, provider.getOutgoingNumberingPlanIndicator(), destination,
                     new ESMClass(), (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0,
-                    isLatinCharset ? provider.getOutgoingDataCoding() : new GeneralDataCoding(Alphabet.ALPHA_UCS2),
+                    hasSpecialCharacters ? new GeneralDataCoding(Alphabet.ALPHA_UCS2) : provider.getOutgoingDataCoding(),
                     (byte) 0,
-                    SlooceSMPPUtil.getBytes(message, isLatinCharset ? ISO_8859_1 : UTF_16),
+                    SlooceSMPPUtil.getBytes(message, hasSpecialCharacters ? UTF_16 : ISO_8859_1),
                     optionalParameters);
             if (logger.isDebugEnabled()) {
                 logger.debug("MT sent - messageId:{} to:{} from:{} text:{}{} - {}", messageId, destination, source, message, paramsToString(optionalParameters), this.toShortString());
